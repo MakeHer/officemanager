@@ -106,7 +106,7 @@ slapp.message('attachment', ['mention', 'direct_message'], (msg) => {
 })
 
 // custom response
-slapp.message('(surprise bitches)/i', ['ambient'], (msg) => {
+slapp.message('(surprise bitches)/i', ['ambient','direct_message','direct_mention'], (msg) => {
   msg.say({
     text: 'Surprise Bitches!',
     attachments: [{
