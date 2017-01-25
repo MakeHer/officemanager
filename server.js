@@ -116,6 +116,17 @@ slapp.message('surprise bitches', ['ambient','direct_message','direct_mention','
   })
 })
 
+// custom response
+slapp.message('/surprise bitches/i', ['ambient','direct_message','direct_mention','mention'], (msg) => {
+  msg.say({
+    text: 'Surprise Bitches!',
+    attachments: [{
+      text: 'Surprise',
+      image_url: 'http://i.giphy.com/dUA1wVWqx8p8s.gif',
+    }]
+  })
+})
+
 // Catch-all for any other responses not handled above
 slapp.message('.*', ['direct_mention', 'direct_message'], (msg) => {
   // respond only 40% of the time
