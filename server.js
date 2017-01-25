@@ -105,6 +105,16 @@ slapp.message('attachment', ['mention', 'direct_message'], (msg) => {
   })
 })
 
+// custom response
+slapp.message('(surprise bitches)/i', ['ambient'], (msg) => {
+  msg.say({
+    text: 'Surprise Bitches!',
+    attachments: [{
+      image_url: 'https://files.slack.com/files-tmb/T1GV9AYE4-F3W1AS5MZ-74b0e2b37b/quigon_360.gif',
+    }]
+  })
+})
+
 // Catch-all for any other responses not handled above
 slapp.message('.*', ['direct_mention', 'direct_message'], (msg) => {
   // respond only 40% of the time
