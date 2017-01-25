@@ -110,7 +110,8 @@ slapp.message('surprise bitches', ['ambient','direct_message','direct_mention'],
   msg.say({
     text: 'Surprise Bitches!',
     attachments: [{
-      image_url: 'https://files.slack.com/files-tmb/T1GV9AYE4-F3W1AS5MZ-74b0e2b37b/quigon_360.gif',
+      text: 'Surprise',
+      image_url: 'http://i.giphy.com/dUA1wVWqx8p8s.gif',
     }]
   })
 })
