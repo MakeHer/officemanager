@@ -26,6 +26,53 @@ I will respond to the following messages:
 `
 
 //*********************************************
+// Slash Commands
+//*********************************************
+
+
+// Delivery
+slapp.command('/delivery', 'received (.*)', (msg, text, question)=>{
+   
+})
+
+slapp.route('handleDoitConfirmation', (msg, state) => {
+    // if they respond with anything other than a button,
+    // get them back on track
+    if (msg.type !== 'action'){
+        msg
+            .say('Please choose a Yes or No button :wink:')
+            // notice we need to devlare the next route to handle the response
+            // every time. Pass along the state and expire the conversation
+            // 60 seconds from now.
+            .route('handleDoitConfirmation, state, 60)
+        return
+    }
+    let answer = ms.body.actions[0].value
+    if (answer !== 'yes'){
+        //the answer was not affirmative
+        msg.respond(msg.body.response_url, {
+            text: 'OK, not doing it. Whew that was close :cold_sweat:',
+            delete_original: true
+        })
+        // notice we DID NOT specify a route because the conversation is over
+        return
+    }
+    // use the stat that's been passed through the flow to figure out the
+    //elapsed time
+    var  elapsed = (Date.now() - state.requested)/1000
+    msg.respond(msg.body.response_url, {
+        text: 'You requested me to do it ${elapsed} seconds ago',
+        delete_original: true
+    })
+    
+    // simulate doing some work and send a confirmation.
+    setTimeout(()=>{
+        msg.say('I "did it"')
+    }, 3000)
+
+})
+
+//*********************************************
 // Setup different handlers for messages
 //*********************************************
 
