@@ -5,6 +5,40 @@ const Slapp = require('slapp')
 const ConvoStore = require('slapp-convo-beepboop')
 const Context = require('slapp-context-beepboop')
 
+// for Delivery Record
+const GoogleSpreadsheet = require('google-spreadsheet')
+const async = require('async')
+
+var date = new Date();
+var doc = new GoogleSpreadsheet(process.env.DELIVERY_SHEET_ID);
+var sheet;
+var delivery_payload;
+
+/*
+var creds = {
+      client_email: process.env.G_CLIENT_EMAIL,
+      private_key: process.env.G_PRIVATE_KEY
+    }
+ */
+
+var creds = require('./config.json');
+doc.useServiceAccountAuth(creds, function(){
+    doc.getInfo(function(err,info){
+        if(err){
+            console.log(err);
+        }
+    });
+});
+
+//  inout = 1 if in, 2 if out -going parcel
+function newDelivery(msg,inout,delivery, callback){
+    var e;
+    date = new Date()
+    doc.addRow(inout,delivery,(err)=>{if(err){e=err}})
+    callback(e,msg)
+    
+}
+
 // use `PORT` env var on Beep Boop - default to 3000 locally
 var port = process.env.PORT || 3000
 
@@ -26,51 +60,417 @@ I will respond to the following messages:
 `
 
 //*********************************************
-// Slash Commands
+//  PACKAGE DELIVERIES 
 //*********************************************
+
+// TODO: make a seperate module for this
+
+/*
+    For the moment, we'll formally enter records through /package. 
+    The bot will listen for events on the #deliveries channel. Any keywords like package, for, from, @mentions
+    will prompt the bot to whisper and provide help text to enter formally.
+
+    Future Work: Hope to use a TensorFlow project for parsing and classifying information
+    sorting and auto recording. To build a training set, it can ask whether it dun good or not. 
+*/
+
+/*
+    Parse route:
+        - classify receive or send
+            if "for @mention", assume receive and "from"
+            if contains one of delivery services AND a continuous (long) number string, asssume sending
+        - "for (.*)/w", to (.*)/w
+        - "from (.*)"
+        
+*/
+
+/*
+    Todo:
+    - make slash command
+    -make chatbot response
+*/
+
+//
+// PACKAGE DELIVERIES: CONSTANTS
+//
+
+var delivery_bot_msg_obj={
+    text: {},
+    as_user: false,
+    username: "Delivery Bot",
+    icon_emoji: ":mailbox_with_mail:"
+}
+
+
+var PACKAGE_HELP_TEXT = `
+    \`/package\` logs incoming and outgoing deliveries.
+    \t Available commands:
+    \t \t \`/package in [for \@user] from <sender name and/or address>\`
+    \t \t \t Record _incoming_ parcels that have been _delivered to the office_. If no recipient, assumes recipient is gor general office.
+    \t \t \`/package out for <name> [service provider] [tracking#]\`
+    \t \t \t Record _outgoing_ parcels
+    \t \t \`/package info\`
+    \t \t \t Gives info about package logs including, spreadsheet url, number of parcels received today and in the last week.
+    `
+
+var DELIVERY_SERVICES = ['auspost','startrack','dhl','couriersplease','fedex']
+
+
+//Relevant keywords for parsing
+var kw_parcel = ["parcel","package","delivery"]
+var kw_in = ["received","in","recieved","receive","recieve","arrived","arrive"]
+var kw_out = ["out","sent","outgoing","dispatched","registered"]
+var kw_to = ["for","to"]
+var kw_from = ["from"]
+var kw_desc = ["containing", "contains", "desc", "description"]
+var kw_loc = ["location", "sitting", "placed", "put","left"]
+
+var delivery_ambient_detect = '((('+kw_in.concat(kw_out).concat(kw_to).concat(kw_from).concat(kw_desc).concat(kw_parcel).join("|")+')\\W)([\\w\\@\\>\\<]*\\W)?){3,}(.*)'
+
+var delivery_amb_re = new RegExp(delivery_ambient_detect,"i")
+
+//Valid cmds (currently not in use)
+var valid_cmds = ["help","in","received","receive","recieve","out","sent"]
+
+//
+// Helper methods
+//
+
+function fieldBuilder(log_payload, short_field){
+    var fields = []
+    for (var key in log_payload){
+        if (log_payload.hasOwnProperty(key)){
+            fields.push({
+                "title": key,
+                "value": log_payload[key],
+                "short": short_field
+            })
+        }
+    }
+    return fields;
+}
+
+function find_key(string_array,possible_keys){
+    var x = false;
+    for (var i = 0; i<possible_keys.length; i++){
+        //console.log(i);
+        //console.log(x);
+        x = x || string_array.indexOf(possible_keys[i]) > 0 && string_array.indexOf(possible_keys[i]);
+    }
+    var result = x>0 && string_array[x].trim();
+    //console.log(result)
+    
+    return result || ~result && "";
+
+}
+function find_value(string_array,possible_keys){
+    var x = false;
+    for (var i = 0; i<possible_keys.length; i++){
+        //console.log(i);
+        //console.log(x);
+        x = x || string_array.indexOf(possible_keys[i]) > 0 && string_array.indexOf(possible_keys[i]);
+    }
+    var result = x>0 && string_array[x+1].trim();
+    //console.log(result)
+    
+    return result || ~result && "";
+}
+
+function prepareConfirmation(msg,text,log_payload,type){
+    // grab user's display icon
+    slapp.client.users.info({token:msg.meta.bot_token,user:msg.meta.user_id},(err,data)=>{if(err){console.log(err)}
+    var p = data["user"]["profile"]["image_32"]
+    msg.respond(msg.body.response_url,{
+        text: 'Confirm adding the following to the delivery register?',
+        response_type: "ephemeral",
+        attachments: [{
+            "callback_id": "send_log",
+            "author_name": msg.body.user_name,
+            "author_icon":  p,
+            "fields": fieldBuilder(log_payload,true),
+            "actions": [
+                {
+                    "name":"confirm",
+                    "text":"Confirm",
+                    "type":"button",
+                    "style": "primary",
+                    "value": "confirm"
+                },
+                {
+                    "name":"confirm",
+                    "text":"Cancel",
+                    "type":"button",
+                    "value": "cancel"
+                }
+
+            ]
+        }]
+                 
+    }, (err,msg)=>{
+        if(err){console.log(err);console.log(msg);}
+    }).route('handleDeliveryConfirmation', {payload: log_payload, type: type, text: text}, 6000);
+
+    })
+}
+function logPayload(state,success){
+    newDelivery("",state.type+2,Object.assign({"success": success,"input":state.text},state.payload),(err,msg)=>{}
+)}
+
+//
+// PACKAGE DELIVERIES: slash commands
+//
+
+
+// cmd: helpText
+slapp.command('/package', 'help',(msg,text)=>{
+    msg.respond(PACKAGE_HELP_TEXT);
+});
+
+// cmd: List (last x) Received Packages
+
+// cmd: (last x) Sent packages
+
+
+function delivery_alert_formatter(msg,log_payload){
+    
+}
+
+// cmd: log package in (received)
+
+slapp.command('/package', '('+kw_in.join("|")+') (.*)', (msg,text,command,q)=>{
+    
+    //preparePayload(msg,1,q)
+    
+    //compulsory keywords: does question have all compulsory keywords?
+    var kwc = kw_from;
+    for (var i=0; i<kwc.length; i++){
+        if (q.indexOf(kwc[i]) < 0){
+            msg.respond("Error: incoming packages requires keyword(s): "+kwc.join(" "));
+            msg.respond(PACKAGE_HELP_TEXT);
+        return;
+        }
+
+        
+    }
+
+    //keywords
+    var kw = kw_to.concat(kw_from,kw_desc,kw_loc); 
+    var kw_re = new RegExp("("+kw.join("|")+")","i");
+
+    // split all arguments based on keywords/flags
+    var q_arr = q.toLowerCase().split(kw_re)
+
+    //console.log(q_arr)
+    var date = new Date();
+    var log_payload = {
+        "created_on": date.toString(),
+        "created_by": msg.body.user_name,
+        "from": find_value(q_arr,kw_from),
+        "to": find_value(q_arr,kw_to),
+        "description": find_value(q_arr,kw_desc),
+        "location": find_value(q_arr,kw_loc)
+    }
+
+    
+    prepareConfirmation(msg,text,log_payload,1)
+/*
+    // grab user's display icon
+    slapp.client.users.info({token:msg.meta.bot_token,user:msg.meta.user_id},(err,data)=>{if(err){console.log(err)}
+    var p = data["user"]["profile"]["image_32"]
+    msg.respond(msg.body.response_url,{
+        text: 'Confirm adding the following to the delivery register?',
+        response_type: "ephemeral",
+        attachments: [{
+            "callback_id": "send_log",
+            "author_name": msg.body.user_name,
+            "author_icon":  p,
+            "fields": fieldBuilder(log_payload,true),
+            "actions": [
+                {
+                    "name":"confirm",
+                    "text":"Confirm",
+                    "type":"button",
+                    "style": "primary",
+                    "value": "confirm"
+                },
+                {
+                    "name":"confirm",
+                    "text":"Cancel",
+                    "type":"button",
+                    "value": "cancel"
+                }
+
+            ]
+        }]
+                 
+    }, (err,msg)=>{
+        if(err){console.log(err);console.log(msg);}
+    }).route('handleDeliveryConfirmation', {payload: log_payload, type: 1, text: text}, 6000);
+
+    })
+
+*/
+    
+})
+
+slapp.route('handleDeliveryConfirmation',(msg,state)=>{
+
+    if (msg.type !== 'action'){
+        msg
+          .say('Please choose Confirm or Cancel button :wink:')
+          .route('handleDeliveryConfirmation', state, 60)
+        return
+      } 
+
+    let answer = msg.body.actions[0].value
+    if (answer !== 'confirm'){
+        logPayload(state,false)
+        msg.respond(msg.body.response_url,{
+            text: "Delivery not recorded",
+            replace_original: true
+        })
+        return
+    }
+
+    newDelivery(msg, state.type, state.payload, (err,msg)=>{
+        if(err){
+            console.log(err)
+            msg.respond(msg.body.response_url,{
+                text: 'Error: Could not update spreadsheet',
+                delete_original: true
+            })
+            return;
+        }
+        else{
+            logPayload(state,true)
+            msg.respond(msg.body.response_url,{
+                text: 'Logged parcel! :muscle:',
+                delete_original: true,
+                replace_original: true
+            },(err,msg)=>{})
+
+            // if recorded a parcel receipt, notify on the deliveries channel
+            if (state.type == 1){
+                var user_id;
+                if (state.payload.to[0]==="@"){
+                    slapp.client.users.list({
+                        token: msg.meta.bot_token,
+                    },(err,data)=>{
+                        if(err){console.log("user list error:");console.log(err)}
+                        for (var u in data.members){
+                            if (data.members[u].hasOwnProperty("name") && data.members[u]["name"]===state.payload.to.substring(1) && data.members[u].hasOwnProperty("id")){
+                                user_id = data.members[u]["id"]
+                                break
+                            }
+                        }
+                        slapp.client.chat.postMessage(Object.assign(delivery_bot_msg_obj,{
+                        token: msg.meta.bot_token,
+                        channel: process.env.DELIVERY_CHANNEL,
+                        text: `<@${user_id}|${state.payload.to.substring(1)}> Package received.`,
+                        attachments:[{
+                                fields: fieldBuilder(state.payload,true)
+                            }]
+                    }), (err,data)=>{
+                        if(err){
+                            console.log(err);
+                        }   
+                    })
+                    })
+                }
+            }
+                    
+        }})
+   });
+
+    
+
+
+
+
+//package out for someone auspost# 3023 04203 4023
+
+
+//Record out package (sent)
+slapp.command('/package', '('+kw_out.join("|")+')'+'(.*)', (msg,text,command,q)=>{
+    var kwc = kw_to;
+    var x;
+    for (var i=0; i<kwc.length; i++){
+        x = x || q.indexOf(kwc[i]) > 0 
+    }
+        if (!x){
+            msg.respond("Error: incoming packages requires keyword(s): "+kwc.join(" or "));
+            msg.respond(PACKAGE_HELP_TEXT);
+        return;
+        }
+
+        
+   //keywords
+    var kw = kw_to.concat(kw_from,kw_desc,kw_loc,DELIVERY_SERVICES); 
+    var kw_re = new RegExp("("+kw.join("|")+")","i");
+
+    // split all arguments based on keywords/flags
+    var q_arr = q.toLowerCase().split(kw_re)
+
+    //console.log(q_arr)
+    var date = new Date();
+    var log_payload = {
+        "created_on": date.toString(),
+        "created_by": msg.body.user_name,
+        "from": find_value(q_arr,kw_from),
+        "to": find_value(q_arr,kw_to),
+        "description": find_value(q_arr,kw_desc),
+        "location": find_value(q_arr,kw_loc),
+        "service": find_key(q_arr,DELIVERY_SERVICES),
+        "tracking": find_value(q_arr,DELIVERY_SERVICES)
+    }
+
+    // TODO: if leftover unaccounted for information, log entire message.
+    prepareConfirmation(msg,text,log_payload,2)
+});
+
 
 
 // Delivery
 slapp.command('/delivery', 'received (.*)', (msg, text, question)=>{
-   
+    delivery_payload = {
+        user : msg.body.user_name,
+        description: 'test'
+    }
+    newDeliveryIn(msg,delivery_payload,function(msg){
+        msg.respond('Error: Could not update spreadsheet')
+        //maybe add a log here
+    });
 })
 
-slapp.route('handleDoitConfirmation', (msg, state) => {
-    // if they respond with anything other than a button,
-    // get them back on track
-    if (msg.type !== 'action'){
-        msg
-            .say('Please choose a Yes or No button :wink:')
-            // notice we need to devlare the next route to handle the response
-            // every time. Pass along the state and expire the conversation
-            // 60 seconds from now.
-            .route('handleDoitConfirmation, state, 60)
-        return
-    }
-    let answer = ms.body.actions[0].value
-    if (answer !== 'yes'){
-        //the answer was not affirmative
-        msg.respond(msg.body.response_url, {
-            text: 'OK, not doing it. Whew that was close :cold_sweat:',
-            delete_original: true
+//TODO: make a log sheet in the same spreadsheet
+
+//
+// PACKAGE DELIVERIES: message response
+//
+
+// Listening for package logs (any keyword mentioned three times or more)
+slapp.message(delivery_amb_re, ['ambient'], (msg) => {
+// console.log(msg.meta)
+  slapp.client.im.open({token: msg.meta.bot_token, user: msg.meta.user_id}, (err,data)=>{
+        if(err){console.log(err); return;}
+        slapp.client.chat.postMessage({
+        token: msg.meta.bot_token, 
+        text: "It seems like you're logging a parcel delivery. Log it using `/package (in|out) for (@user|name) [from name]` or type `/package help` for more options.",
+        as_user: false,
+        username: "Delivery Bot",
+        icon_emoji: ":postbox:",
+        channel: data.channel.id
+        }, (err,data) => {
+            if(err){
+
+                console.log(err)
+            }
         })
-        // notice we DID NOT specify a route because the conversation is over
-        return
-    }
-    // use the stat that's been passed through the flow to figure out the
-    //elapsed time
-    var  elapsed = (Date.now() - state.requested)/1000
-    msg.respond(msg.body.response_url, {
-        text: 'You requested me to do it ${elapsed} seconds ago',
-        delete_original: true
     })
-    
-    // simulate doing some work and send a confirmation.
-    setTimeout(()=>{
-        msg.say('I "did it"')
-    }, 3000)
-
 })
+
+// Listening for file uploads which get sent to the deliveries channel (unprompted)
+//slapp.message()
 
 //*********************************************
 // Setup different handlers for messages
@@ -85,9 +485,20 @@ slapp.message('help', ['mention', 'direct_message'], (msg) => {
 slapp
   .message('^(hi|hello|hey)$', ['direct_mention', 'direct_message'], (msg, text) => {
     msg
-      .say(`${text}, how are you?`)
+      .say([
+        'Hiya :flag-gb:',
+        "G'day :flag-au:",
+        'Nǐ hǎo :flag-cn:',
+        'Hola :flag-sp:',
+        'Suup Dawwg :flag-us:',
+        'Konnichiwa! :flag-jp:',
+        'Ciao! :flag-it:',
+        'Bonjour! :flag-fr:',
+        'Salam! :flag-ir:',
+        'Sawasdee! :flag-th'
+        ])
       // sends next event from user to this route, passing along state
-      .route('how-are-you', { greeting: text })
+      //.route('how-are-you', { greeting: text })
   })
   .route('how-are-you', (msg, state) => {
     var text = (msg.body.event && msg.body.event.text) || ''
@@ -127,7 +538,7 @@ slapp
   })
 
 // Can use a regex as well
-slapp.message(/^(thanks|thank you)/i, ['mention', 'direct_message'], (msg) => {
+slapp.message(/^(thanks|thank you|thx|ty)/i, ['mention', 'direct_message'], (msg) => {
   // You can provide a list of responses, and a random one will be chosen
   // You can also include slack emoji in your responses
   msg.say([
@@ -137,7 +548,7 @@ slapp.message(/^(thanks|thank you)/i, ['mention', 'direct_message'], (msg) => {
     'Anytime :sun_with_face: :full_moon_with_face:'
   ])
 })
-
+/*
 // demonstrate returning an attachment...
 slapp.message('attachment', ['mention', 'direct_message'], (msg) => {
   msg.say({
@@ -151,20 +562,21 @@ slapp.message('attachment', ['mention', 'direct_message'], (msg) => {
     }]
   })
 })
-
+*/
+/*
 // custom response
 slapp.message('surprise bitches', ['ambient','direct_message','direct_mention','mention'], (msg) => {
   msg.say({
     text: 'Surprise Bitches!',
     attachments: [{
       text: 'Surprise',
-      image_url: 'http://i.giphy.com/dUA1wVWqx8p8s.gif',
+     image_url: 'http://i.giphy.com/dUA1wVWqx8p8s.gif',
     }]
   })
 })
-
+*/
 // custom response
-slapp.message('/surprise bitches/i', ['ambient','direct_message','direct_mention','mention'], (msg) => {
+slapp.message('surprise bitches(.*)', ['ambient','direct_message','direct_mention','mention'], (msg) => {
   msg.say({
     text: 'Surprise Bitches!',
     attachments: [{
@@ -176,7 +588,8 @@ slapp.message('/surprise bitches/i', ['ambient','direct_message','direct_mention
 
 // Catch-all for any other responses not handled above
 slapp.message('.*', ['direct_mention', 'direct_message'], (msg) => {
-  // respond only 40% of the time
+  console.log(msg)
+    // respond only 40% of the time
   if (Math.random() < 0.4) {
     msg.say([':wave:', ':pray:', ':raised_hands:'])
   }
