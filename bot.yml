@@ -25,3 +25,20 @@ config:
   info: Long Private Key for Drive API
   type: secret
   global: false
+ - name: AUTH_URI
+  friendly_name: Auth URI
+  type: text
+  global: false 
+ - name: TOKEN_URI
+  friendly_name: Token URI
+  type: text
+  global: false 
+ - name: CLIENT_ID
+  friendly_name: client_id
+  type: text
+  global: false 
+ - name: CLIENT_CERT
+  friendly_name: client_cert
+  type: text
+  global: false 
+
