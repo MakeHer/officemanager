@@ -28,7 +28,7 @@ var creds = {
 //      "type": process.env.AUTH_TYPE,
 //      "project_id": process.env.PROJECT_ID,
 //      "private_key_id": process.env.PRIVATE_KEY_ID,
-      "private_key": private_key.replace(/\\\\n/g,"\n"),
+      "private_key": private_key,
       "client_email": process.env.G_CLIENT_EMAIL,
 //      "client_id": process.env.CLIENT_ID,
 //      "auth_uri": process.env.AUTH_URI,
