@@ -14,14 +14,14 @@ var doc = new GoogleSpreadsheet(process.env.DELIVERY_SHEET_ID);
 var sheet;
 var delivery_payload;
 
-/*
+
 var creds = {
       client_email: process.env.G_CLIENT_EMAIL,
       private_key: process.env.G_PRIVATE_KEY
     }
- */
 
-var creds = require('./config.json');
+
+//var creds = require('./config.json');
 doc.useServiceAccountAuth(creds, function(){
     doc.getInfo(function(err,info){
         if(err){
@@ -70,8 +70,6 @@ I will respond to the following messages:
     The bot will listen for events on the #deliveries channel. Any keywords like package, for, from, @mentions
     will prompt the bot to whisper and provide help text to enter formally.
 
-    Future Work: Hope to use a TensorFlow project for parsing and classifying information
-    sorting and auto recording. To build a training set, it can ask whether it dun good or not. 
 */
 
 /*
@@ -82,12 +80,6 @@ I will respond to the following messages:
         - "for (.*)/w", to (.*)/w
         - "from (.*)"
         
-*/
-
-/*
-    Todo:
-    - make slash command
-    -make chatbot response
 */
 
 //
@@ -216,41 +208,25 @@ function logPayload(state,success){
     newDelivery("",state.type+2,Object.assign({"success": success,"input":state.text},state.payload),(err,msg)=>{}
 )}
 
-//
-// PACKAGE DELIVERIES: slash commands
-//
-
-
-// cmd: helpText
-slapp.command('/package', 'help',(msg,text)=>{
-    msg.respond(PACKAGE_HELP_TEXT);
-});
-
-// cmd: List (last x) Received Packages
-
-// cmd: (last x) Sent packages
-
-
-function delivery_alert_formatter(msg,log_payload){
-    
+//checks for keyword compliance
+function checkKW(kwc,q){
+    var x;
+    for (var i=0; i<kwc.length; i++){
+        x = x || q.indexOf(kwc[i]) > 0 
+    }
+        if (!x){
+            msg.respond("Error: incoming packages requires keyword(s): "+kwc.join(" or "));
+            msg.respond(PACKAGE_HELP_TEXT);
+        return false;
+        }
+        return true;
 }
 
-// cmd: log package in (received)
-
-slapp.command('/package', '('+kw_in.join("|")+') (.*)', (msg,text,command,q)=>{
-    
-    //preparePayload(msg,1,q)
+function inDelivery(msg,text,command,q){
     
     //compulsory keywords: does question have all compulsory keywords?
-    var kwc = kw_from;
-    for (var i=0; i<kwc.length; i++){
-        if (q.indexOf(kwc[i]) < 0){
-            msg.respond("Error: incoming packages requires keyword(s): "+kwc.join(" "));
-            msg.respond(PACKAGE_HELP_TEXT);
+    if (!checkKW(kw_from,text)){
         return;
-        }
-
-        
     }
 
     //keywords
@@ -258,7 +234,7 @@ slapp.command('/package', '('+kw_in.join("|")+') (.*)', (msg,text,command,q)=>{
     var kw_re = new RegExp("("+kw.join("|")+")","i");
 
     // split all arguments based on keywords/flags
-    var q_arr = q.toLowerCase().split(kw_re)
+    var q_arr = text.toLowerCase().split(kw_re)
 
     //console.log(q_arr)
     var date = new Date();
@@ -273,44 +249,38 @@ slapp.command('/package', '('+kw_in.join("|")+') (.*)', (msg,text,command,q)=>{
 
     
     prepareConfirmation(msg,text,log_payload,1)
-/*
-    // grab user's display icon
-    slapp.client.users.info({token:msg.meta.bot_token,user:msg.meta.user_id},(err,data)=>{if(err){console.log(err)}
-    var p = data["user"]["profile"]["image_32"]
-    msg.respond(msg.body.response_url,{
-        text: 'Confirm adding the following to the delivery register?',
-        response_type: "ephemeral",
-        attachments: [{
-            "callback_id": "send_log",
-            "author_name": msg.body.user_name,
-            "author_icon":  p,
-            "fields": fieldBuilder(log_payload,true),
-            "actions": [
-                {
-                    "name":"confirm",
-                    "text":"Confirm",
-                    "type":"button",
-                    "style": "primary",
-                    "value": "confirm"
-                },
-                {
-                    "name":"confirm",
-                    "text":"Cancel",
-                    "type":"button",
-                    "value": "cancel"
-                }
 
-            ]
-        }]
-                 
-    }, (err,msg)=>{
-        if(err){console.log(err);console.log(msg);}
-    }).route('handleDeliveryConfirmation', {payload: log_payload, type: 1, text: text}, 6000);
+}
 
-    })
 
-*/
-    
+//
+// PACKAGE DELIVERIES: slash commands
+//
+
+
+// cmd: helpText
+slapp.command('/package', 'help',(msg,text)=>{
+    msg.respond(PACKAGE_HELP_TEXT);
+});
+
+slapp.command('/package', 'info', (msg,text)=>{
+    msg.respond(`
+    Delivery logs are kept under google spreadsheetID: ${process.env.DELIVERY_SHEET_ID}
+    `)
+})
+
+// (TODO)cmd: List (last x) Received Packages
+
+// (TODO)cmd: (last x) Sent packages
+
+
+slapp.command('/package', '('+kw_to.join("|")+') @(.*)', (msg,text,command,q)=>{
+    inDelivery(msg,text,command,q);
+})
+
+// cmd: log package in (received)
+slapp.command('/package', '('+kw_in.join("|")+') (.*)', (msg,text,command,q)=>{
+    inDelivery(msg,text,command,q);
 })
 
 slapp.route('handleDeliveryConfirmation',(msg,state)=>{
@@ -387,22 +357,13 @@ slapp.route('handleDeliveryConfirmation',(msg,state)=>{
 
 
 
-//package out for someone auspost# 3023 04203 4023
 
 
 //Record out package (sent)
 slapp.command('/package', '('+kw_out.join("|")+')'+'(.*)', (msg,text,command,q)=>{
-    var kwc = kw_to;
-    var x;
-    for (var i=0; i<kwc.length; i++){
-        x = x || q.indexOf(kwc[i]) > 0 
-    }
-        if (!x){
-            msg.respond("Error: incoming packages requires keyword(s): "+kwc.join(" or "));
-            msg.respond(PACKAGE_HELP_TEXT);
+    if (!checkKW(kw_to,text)){
         return;
-        }
-
+    }
         
    //keywords
     var kw = kw_to.concat(kw_from,kw_desc,kw_loc,DELIVERY_SERVICES); 
@@ -440,6 +401,10 @@ slapp.command('/delivery', 'received (.*)', (msg, text, question)=>{
         msg.respond('Error: Could not update spreadsheet')
         //maybe add a log here
     });
+})
+
+slapp.command('/package','.*',(msg,text)=>{
+    msg.respond("Invalid use of \`package\`\n. Type \`\\package help` for use.")
 })
 
 //TODO: make a log sheet in the same spreadsheet
@@ -500,42 +465,6 @@ slapp
       // sends next event from user to this route, passing along state
       //.route('how-are-you', { greeting: text })
   })
-  .route('how-are-you', (msg, state) => {
-    var text = (msg.body.event && msg.body.event.text) || ''
-
-    // user may not have typed text as their next action, ask again and re-route
-    if (!text) {
-      return msg
-        .say("Whoops, I'm still waiting to hear how you're doing.")
-        .say('How are you?')
-        .route('how-are-you', state)
-    }
-
-    // add their response to state
-    state.status = text
-
-    msg
-      .say(`Ok then. What's your favorite color?`)
-      .route('color', state)
-  })
-  .route('color', (msg, state) => {
-    var text = (msg.body.event && msg.body.event.text) || ''
-
-    // user may not have typed text as their next action, ask again and re-route
-    if (!text) {
-      return msg
-        .say("I'm eagerly awaiting to hear your favorite color.")
-        .route('color', state)
-    }
-
-    // add their response to state
-    state.color = text
-
-    msg
-      .say('Thanks for sharing.')
-      .say(`Here's what you've told me so far: \`\`\`${JSON.stringify(state)}\`\`\``)
-    // At this point, since we don't route anywhere, the "conversation" is over
-  })
 
 // Can use a regex as well
 slapp.message(/^(thanks|thank you|thx|ty)/i, ['mention', 'direct_message'], (msg) => {
@@ -548,33 +477,7 @@ slapp.message(/^(thanks|thank you|thx|ty)/i, ['mention', 'direct_message'], (msg
     'Anytime :sun_with_face: :full_moon_with_face:'
   ])
 })
-/*
-// demonstrate returning an attachment...
-slapp.message('attachment', ['mention', 'direct_message'], (msg) => {
-  msg.say({
-    text: 'Check out this amazing attachment! :confetti_ball: ',
-    attachments: [{
-      text: 'Slapp is a robust open source library that sits on top of the Slack APIs',
-      title: 'Slapp Library - Open Source',
-      image_url: 'https://storage.googleapis.com/beepboophq/_assets/bot-1.22f6fb.png',
-      title_link: 'https://beepboophq.com/',
-      color: '#7CD197'
-    }]
-  })
-})
-*/
-/*
-// custom response
-slapp.message('surprise bitches', ['ambient','direct_message','direct_mention','mention'], (msg) => {
-  msg.say({
-    text: 'Surprise Bitches!',
-    attachments: [{
-      text: 'Surprise',
-     image_url: 'http://i.giphy.com/dUA1wVWqx8p8s.gif',
-    }]
-  })
-})
-*/
+
 // custom response
 slapp.message('surprise bitches(.*)', ['ambient','direct_message','direct_mention','mention'], (msg) => {
   msg.say({
