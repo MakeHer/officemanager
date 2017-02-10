@@ -14,30 +14,13 @@ var doc = new GoogleSpreadsheet(process.env.DELIVERY_SHEET_ID);
 var sheet;
 var delivery_payload;
 
-var private_key = process.env.G_PRIVATE_KEY
-
-/*console.log(private_key)
-
-var key_re = new RegExp("\\\\n","g")
-
-private_key.replace(key_re,'\n')
-
-console.log(private_key)
-*/
-var creds = {
-//      "type": process.env.AUTH_TYPE,
-//      "project_id": process.env.PROJECT_ID,
-//      "private_key_id": process.env.PRIVATE_KEY_ID,
-      "private_key": private_key.replace(/\\n/g,"\n"),
-      "client_email": process.env.G_CLIENT_EMAIL,
-//      "client_id": process.env.CLIENT_ID,
-//      "auth_uri": process.env.AUTH_URI,
-//      "token_uri": process.env.TOKEN_URI,
-//      "auth_provider_x509_cert_url": process.env.AUTH_PROVIDER,
-//      "client_x509_cert_url": process.env.CLIENT_CERT
-    }
 
 
+var creds = b64ToObject(process.env.G_PRIVATE_KEY)
+
+function b64ToObject (b64) {
+  return !b64 ? {} : JSON.parse(Buffer.from(b64, 'base64').toString('ascii'))
+}
 
 //var creds = require('./config.json');
 
