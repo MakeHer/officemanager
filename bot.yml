@@ -2,3 +2,26 @@ name: slappbot
 description: ☝️☝️ Check out the README ☝️☝️ in the repo for setup instructions. By the way, this is just the description in the bot.yml file - feel free to change it 😉
 avatar: .beepboop/avatar.png
 # To learn everything supported in the bot.yml file, visit https://beepboophq.com/docs/article/bot-yml
+
+config:
+- name: DELIVERY_CHANNEL
+  friendly_name: Delivery Channel
+  info: Channel ID to broadcast deliveries
+  global: false
+  default: C3L0DSQ5Q
+  type: text
+- name: DELIVERY_SHEET_ID
+  friendly_name: Google Sheet ID
+  info: ID of the spreadsheet
+  type: secret
+  global: false
+- name: G_CLIENT_EMAIL
+  friendly_name: Google Client Email
+  info: Auth Token      
+  type: secret
+  global: false
+- name: G_PRIVATE_KEY
+  friendly_name: Private Key
+  info: Long Private Key for Drive API
+  type: secret
+  global: false

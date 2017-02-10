@@ -1,7 +1,13 @@
+config.json
+# Backup
+*.swo
+*.swp
+
 # Logs
 logs
 *.log
 npm-debug.log*
+TODO.txt
 
 # Runtime data
 pids
