@@ -41,8 +41,6 @@ var creds = {
 
 //var creds = require('./config.json');
 
-console.log(creds)
-
 doc.useServiceAccountAuth(creds, function(){
     doc.getInfo(function(err,info){
         if(err){
