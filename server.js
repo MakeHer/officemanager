@@ -19,6 +19,7 @@ var pk = process.env.G_PRIVATE_KEY + process.env.G_PRIVATE_KEY2 || "DEFAULT"
 ;
 
 
+console.log(sheet_id)
 pk = pk.replace(/(?:\\[rn])+/g,"\n") 
 
 var creds = {
