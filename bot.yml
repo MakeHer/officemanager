@@ -14,7 +14,7 @@ config:
   friendly_name: Google Sheet ID
   info: ID of the spreadsheet
   type: secret
-  global: false
+  global: true
 - name: G_CLIENT_EMAIL
   friendly_name: Google Client Email
   info: Auth Token      
