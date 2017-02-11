@@ -9,18 +9,22 @@ const Context = require('slapp-context-beepboop')
 const GoogleSpreadsheet = require('google-spreadsheet')
 const async = require('async')
 
+var sheet_id = process.env.DELIVERY_SHEET_ID || "DEFAULT"
+console.log(sheet_id)
 var date = new Date();
-var doc = new GoogleSpreadsheet(process.env.DELIVERY_SHEET_ID);
+var doc = new GoogleSpreadsheet(sheet_id);
 var sheet;
 var delivery_payload;
-var pk = process.env.G_PRIVATE_KEY + process.env.G_PRIVATE_KEY2;
+var pk = process.env.G_PRIVATE_KEY + process.env.G_PRIVATE_KEY2 || "DEFAULT"
+;
 
 
 pk = pk.replace(/(?:\\[rn])+/g,"\n") 
 
 var creds = {
 
-    client_email: process.env.G_CLIENT_EMAIL,
+    client_email: process.env.G_CLIENT_EMAIL || "DEFAULT"
+,
     private_key: pk
 
 }
