@@ -13,14 +13,24 @@ var date = new Date();
 var doc = new GoogleSpreadsheet(process.env.DELIVERY_SHEET_ID);
 var sheet;
 var delivery_payload;
+var pk = process.env.G_PRIVATE_KEY + process.env.G_PRIVATE_KEY2;
 
 
+pk = pk.replace(/(?:\\[rn])+/g,"\n") 
 
+var creds = {
+
+    client_email: process.env.G_CLIENT_EMAIL,
+    private_key: pk
+
+}
+
+/*
 var creds = b64ToObject(process.env.G_PRIVATE_KEY)
-
 function b64ToObject (b64) {
   return !b64 ? {} : JSON.parse(Buffer.from(b64, 'base64').toString('ascii'))
 }
+*/
 
 //var creds = require('./config.json');
 

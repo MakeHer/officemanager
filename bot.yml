@@ -25,6 +25,11 @@ config:
   info: Long Private Key for Drive API
   type: secret
   global: false
+- name: G_PRIVATE_KEY2
+  friendly_name: Private Key
+  info: Long Private Key for Drive API
+  type: secret
+  global: false
 # - name: AUTH_URI
 #  friendly_name: Auth URI
 #  type: text
