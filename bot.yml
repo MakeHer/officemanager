@@ -13,7 +13,7 @@ config:
 - name: DELIVERY_SHEET_ID
   friendly_name: Google Sheet ID
   info: ID of the spreadsheet
-  type: secret
+  type: text
   global: true
 - name: G_CLIENT_EMAIL
   friendly_name: Google Client Email
