@@ -10,7 +10,7 @@ const GoogleSpreadsheet = require('google-spreadsheet')
 const async = require('async')
 
 var sheet_id = process.env.DELIVERY_SHEET_ID || "DEFAULT"
-console.log(sheet_id)
+console.log(process.env)
 var date = new Date();
 var doc = new GoogleSpreadsheet(sheet_id);
 var sheet;
