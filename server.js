@@ -1,3 +1,4 @@
+//TODO: change help text in eavesdropping
 'use strict'
 
 const express = require('express')
@@ -6,55 +7,15 @@ const ConvoStore = require('slapp-convo-beepboop')
 const Context = require('slapp-context-beepboop')
 
 // for Delivery Record
-const GoogleSpreadsheet = require('google-spreadsheet')
 const async = require('async')
+const GoogleSpreadsheet = require('google-spreadsheet')
 
-var sheet_id = process.env.DELIVERY_SHEET_ID || "DEFAULT"
-console.log(process.env)
+
 var date = new Date();
-var doc = new GoogleSpreadsheet(sheet_id);
-var sheet;
 var delivery_payload;
-var pk = process.env.G_PRIVATE_KEY + process.env.G_PRIVATE_KEY2 || "DEFAULT"
-;
-
-
-console.log(sheet_id)
-pk = pk.replace(/(?:\\[rn])+/g,"\n") 
-
-var creds = {
-
-    client_email: process.env.G_CLIENT_EMAIL || "DEFAULT"
-,
-    private_key: pk
-
-}
-
-/*
-var creds = b64ToObject(process.env.G_PRIVATE_KEY)
-function b64ToObject (b64) {
-  return !b64 ? {} : JSON.parse(Buffer.from(b64, 'base64').toString('ascii'))
-}
-*/
-
-//var creds = require('./config.json');
-
-doc.useServiceAccountAuth(creds, function(){
-    doc.getInfo(function(err,info){
-        if(err){
-            console.log(err);
-        }
-    });
-});
-
-//  inout = 1 if in, 2 if out -going parcel
-function newDelivery(msg,inout,delivery, callback){
-    var e;
-    date = new Date()
-    doc.addRow(inout,delivery,(err)=>{if(err){e=err}})
-    callback(e,msg)
-    
-}
+var sheet_id, pk, doc;
+var team_id;
+var creds;
 
 // use `PORT` env var on Beep Boop - default to 3000 locally
 var port = process.env.PORT || 3000
@@ -65,6 +26,65 @@ var slapp = Slapp({
   convo_store: ConvoStore(),
   context: Context()
 })
+
+//  inout = 1 if in, 2 if out -going parcel
+function newDelivery(msg,inout,delivery, callback){
+    var e;
+    date = new Date()
+        sheet_id = process.env.DELIVERY_SHEET_ID  || msg.config.DELIVERY_SHEET_ID 
+            doc = new GoogleSpreadsheet(sheet_id);
+            pk = (process.env.G_PRIVATE_KEY + process.env.G_PRIVATE_KEY2)||( msg.config.G_PRIVATE_KEY + msg.config.G_PRIVATE_KEY )
+
+            pk = pk.replace(/(?:\\[rn])+/g,"\n") 
+
+            creds = {
+
+                client_email: process.env.G_CLIENT_EMAIL || msg.config.G_CLIENT_EMAIL
+            ,
+                private_key: pk
+
+            }
+
+            doc.useServiceAccountAuth(creds, (err)=>{
+                if(!err){
+                    doc.addRow(inout,delivery,callback(err,msg))
+                }
+                
+            });
+    /*
+    async.series([
+        function setAuth(step) {
+            // see notes below for authentication instructions! 
+            sheet_id = process.env.DELIVERY_SHEET_ID  || msg.config.DELIVERY_SHEET_ID 
+            doc = new GoogleSpreadsheet(sheet_id);
+            pk = (process.env.G_PRIVATE_KEY + process.env.G_PRIVATE_KEY2)||( msg.config.G_PRIVATE_KEY + msg.config.G_PRIVATE_KEY )
+
+            pk = pk.replace(/(?:\\[rn])+/g,"\n") 
+
+            creds = {
+
+                client_email: process.env.G_CLIENT_EMAIL || msg.config.G_CLIENT_EMAIL
+            ,
+                private_key: pk
+
+            }
+
+            doc.useServiceAccountAuth(creds, step);
+        },
+        function getInfoAndWorksheets(step) {
+            doc.getInfo(function(err, info) {
+                console.log('Loaded doc: '+info.title+' by '+info.author.email);
+                step();
+            });
+        },
+        function addRowtoDoc(step){
+            doc.addRow(inout,delivery,step)
+        }
+]);
+    */
+}
+
+
 
 
 var HELP_TEXT = `
@@ -162,12 +182,9 @@ function fieldBuilder(log_payload, short_field){
 function find_key(string_array,possible_keys){
     var x = false;
     for (var i = 0; i<possible_keys.length; i++){
-        //console.log(i);
-        //console.log(x);
         x = x || string_array.indexOf(possible_keys[i]) > 0 && string_array.indexOf(possible_keys[i]);
     }
     var result = x>0 && string_array[x].trim();
-    //console.log(result)
     
     return result || ~result && "";
 
@@ -175,12 +192,9 @@ function find_key(string_array,possible_keys){
 function find_value(string_array,possible_keys){
     var x = false;
     for (var i = 0; i<possible_keys.length; i++){
-        //console.log(i);
-        //console.log(x);
         x = x || string_array.indexOf(possible_keys[i]) > 0 && string_array.indexOf(possible_keys[i]);
     }
     var result = x>0 && string_array[x+1].trim();
-    //console.log(result)
     
     return result || ~result && "";
 }
@@ -226,7 +240,7 @@ function logPayload(state,success){
 )}
 
 //checks for keyword compliance
-function checkKW(kwc,q){
+function checkKW(msg,kwc,q){
     var x;
     for (var i=0; i<kwc.length; i++){
         x = x || q.indexOf(kwc[i]) > 0 
@@ -242,7 +256,7 @@ function checkKW(kwc,q){
 function inDelivery(msg,text,command,q){
     
     //compulsory keywords: does question have all compulsory keywords?
-    if (!checkKW(kw_from,text)){
+    if (!checkKW(msg,kw_from,text)){
         return;
     }
 
@@ -253,7 +267,6 @@ function inDelivery(msg,text,command,q){
     // split all arguments based on keywords/flags
     var q_arr = text.toLowerCase().split(kw_re)
 
-    //console.log(q_arr)
     var date = new Date();
     var log_payload = {
         "created_on": date.toString(),
@@ -262,6 +275,10 @@ function inDelivery(msg,text,command,q){
         "to": find_value(q_arr,kw_to),
         "description": find_value(q_arr,kw_desc),
         "location": find_value(q_arr,kw_loc)
+    }
+    
+    if (log_payload.to === "me"){
+        log_payload.to = msg.body.user_name
     }
 
     
@@ -283,6 +300,7 @@ slapp.command('/package', 'help',(msg,text)=>{
 slapp.command('/package', 'info', (msg,text)=>{
     msg.respond(`
     Delivery logs are kept under google spreadsheetID: ${process.env.DELIVERY_SHEET_ID}
+    COMING_SOON: Daily stats
     `)
 })
 
@@ -291,7 +309,7 @@ slapp.command('/package', 'info', (msg,text)=>{
 // (TODO)cmd: (last x) Sent packages
 
 
-slapp.command('/package', '('+kw_to.join("|")+') @(.*)', (msg,text,command,q)=>{
+slapp.command('/package', '('+kw_to.join("|")+') (@|me)(.*)', (msg,text,command,q)=>{
     inDelivery(msg,text,command,q);
 })
 
@@ -324,7 +342,7 @@ slapp.route('handleDeliveryConfirmation',(msg,state)=>{
             console.log(err)
             msg.respond(msg.body.response_url,{
                 text: 'Error: Could not update spreadsheet',
-                delete_original: true
+                replace_original: true
             })
             return;
         }
@@ -332,47 +350,66 @@ slapp.route('handleDeliveryConfirmation',(msg,state)=>{
             logPayload(state,true)
             msg.respond(msg.body.response_url,{
                 text: 'Logged parcel! :muscle:',
-                delete_original: true,
                 replace_original: true
             },(err,msg)=>{})
 
             // if recorded a parcel receipt, notify on the deliveries channel
             if (state.type == 1){
-                var user_id;
                 if (state.payload.to[0]==="@"){
-                    slapp.client.users.list({
-                        token: msg.meta.bot_token,
-                    },(err,data)=>{
-                        if(err){console.log("user list error:");console.log(err)}
-                        for (var u in data.members){
-                            if (data.members[u].hasOwnProperty("name") && data.members[u]["name"]===state.payload.to.substring(1) && data.members[u].hasOwnProperty("id")){
-                                user_id = data.members[u]["id"]
-                                break
-                            }
-                        }
-                        slapp.client.chat.postMessage(Object.assign(delivery_bot_msg_obj,{
-                        token: msg.meta.bot_token,
-                        channel: process.env.DELIVERY_CHANNEL,
-                        text: `<@${user_id}|${state.payload.to.substring(1)}> Package received.`,
-                        attachments:[{
-                                fields: fieldBuilder(state.payload,true)
-                            }]
-                    }), (err,data)=>{
-                        if(err){
-                            console.log(err);
-                        }   
-                    })
-                    })
+                    mentionUser(msg,state)
                 }
+                else
+                deliveryAlert(msg,state,"")
             }
                     
         }})
    });
 
-    
+   
+function deliveryAlert(msg,state,text){
+    var text2
+    if(state.type==1){
+        text2 = "Package received"
+    }
+    else if(state.type==2){
+        text2 = "Package sent"
+    }
+    slapp.client.chat.postMessage(Object.assign(delivery_bot_msg_obj,{
+            token: msg.meta.bot_token,
+        channel: process.env.DELIVERY_CHANNEL || msg.config.DELIVERY_CHANNEL,
+        //text: `<@${user_id}|${state.payload.to.substring(1)}> Package received.`,
+        text: text+ "Package received",
+        attachments:[{
+                fields: fieldBuilder(state.payload,true)
+            }]
+    }), (err,data)=>{
+        if(err){
+            console.log(err);
+        }   
+    })
 
 
 
+}
+
+function mentionUser(msg,state){
+        var user_id
+        slapp.client.users.list({
+        token: msg.meta.bot_token
+    },(err,data)=>{
+        if(err){console.log("user list error:");console.log(err)}
+        else{
+        for (var u in data.members){
+            if (data.members[u].hasOwnProperty("name") && data.members[u]["name"]===state.payload.to.substring(1) && data.members[u].hasOwnProperty("id")){
+                user_id = data.members[u]["id"]
+                break
+            }
+        }
+        var text =  (user_id && `<@${user_id}|${state.payload.to.substring(1)}>`) 
+        deliveryAlert(msg,state,text+" ")
+        }
+    })
+}
 
 
 
@@ -389,7 +426,6 @@ slapp.command('/package', '('+kw_out.join("|")+')'+'(.*)', (msg,text,command,q)=
     // split all arguments based on keywords/flags
     var q_arr = q.toLowerCase().split(kw_re)
 
-    //console.log(q_arr)
     var date = new Date();
     var log_payload = {
         "created_on": date.toString(),
@@ -430,19 +466,20 @@ slapp.command('/package','.*',(msg,text)=>{
 // PACKAGE DELIVERIES: message response
 //
 
+slapp.message("auth sheets",["direct_mention","direct_message"], (msg) =>{
+
+        connectSheets(msg,function(){console.log(doc)})
+})
+
 // Listening for package logs (any keyword mentioned three times or more)
 slapp.message(delivery_amb_re, ['ambient'], (msg) => {
-// console.log(msg.meta)
   slapp.client.im.open({token: msg.meta.bot_token, user: msg.meta.user_id}, (err,data)=>{
         if(err){console.log(err); return;}
-        slapp.client.chat.postMessage({
+        slapp.client.chat.postMessage(Object.assign(delivery_bot_msg_obj,{
         token: msg.meta.bot_token, 
-        text: "It seems like you're logging a parcel delivery. Log it using `/package (in|out) for (@user|name) [from name]` or type `/package help` for more options.",
-        as_user: false,
-        username: "Delivery Bot",
-        icon_emoji: ":postbox:",
+        text: "It seems like you're logging a parcel delivery. Log it using `/package (in|out) [for (@user|name)] from <name|address>` or type `/package help` for more options.",
         channel: data.channel.id
-        }, (err,data) => {
+        }), (err,data) => {
             if(err){
 
                 console.log(err)
@@ -508,7 +545,6 @@ slapp.message('surprise bitches(.*)', ['ambient','direct_message','direct_mentio
 
 // Catch-all for any other responses not handled above
 slapp.message('.*', ['direct_mention', 'direct_message'], (msg) => {
-  console.log(msg)
     // respond only 40% of the time
   if (Math.random() < 0.4) {
     msg.say([':wave:', ':pray:', ':raised_hands:'])
