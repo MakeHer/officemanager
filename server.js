@@ -33,7 +33,6 @@ function newDelivery(msg,inout,delivery, callback){
         sheet_id = process.env.DELIVERY_SHEET_ID  || msg.meta.config.DELIVERY_SHEET_ID 
             doc = new GoogleSpreadsheet(sheet_id);
             pk = (process.env.G_PRIVATE_KEY + process.env.G_PRIVATE_KEY2)||( msg.meta.config.G_PRIVATE_KEY + msg.meta.config.G_PRIVATE_KEY2 )
-meta.
             pk = pk.replace(/(?:\\[rn])+/g,"\n") 
 
             creds = {
