@@ -140,6 +140,8 @@ var PACKAGE_HELP_TEXT = `
     \t \t \t Record _incoming_ parcels that have been _delivered to the office_. If no recipient, assumes recipient is gor general office.
     \t \t \`/package out for <name> [service provider] [tracking#]\`
     \t \t \t Record _outgoing_ parcels
+    \t \t \`/package synonyms`
+    \t \t \t While the syntax may be strict, the keywords used are flexible for natural language patterns. Use this to see what synonyms can be used.
     \t \t \`/package info\`
     \t \t \t Gives info about package logs including, spreadsheet url, number of parcels received today and in the last week.
     `
@@ -395,7 +397,7 @@ function deliveryAlert(msg,state,text){
     else if(state.type==2){
         text2 = "Package sent"
     }
-    slapp.client.chat.postMessage(Object.assign(delivery_bot_msg_obj,{
+    slapp.client.chat.postMessage(Object.assign({
             token: msg.meta.bot_token,
         channel: process.env.DELIVERY_CHANNEL || msg.meta.config.DELIVERY_CHANNEL,
         //text: `<@${user_id}|${state.payload.to.substring(1)}> Package received.`,
@@ -403,7 +405,7 @@ function deliveryAlert(msg,state,text){
         attachments:[{
                 fields: fieldBuilder(state.payload,true)
             }]
-    }), (err,data)=>{
+    },delivery_bot_msg_obj), (err,data)=>{
         if(err){
             console.log(err);
         }   
@@ -499,11 +501,11 @@ slapp.message(delivery_amb_re, ['ambient'], (msg) => {
     if (msg.body.event.text.match(delivery_amb_re).length>2){
         slapp.client.im.open({token: msg.meta.bot_token, user: msg.meta.user_id}, (err,data)=>{
             if(err){console.log(err); return;}
-            slapp.client.chat.postMessage(Object.assign(delivery_bot_msg_obj,{
+            slapp.client.chat.postMessage(Object.assign({
             token: msg.meta.bot_token, 
             text: "It seems like you're logging a parcel delivery. Log it using `/package (in|out) [for (@user|name)] from <name|address>` or type `/package help` for more options.",
             channel: data.channel.id
-            }), (err,data) => {
+            },delivery_bot_msg_obj), (err,data) => {
                 if(err){
 
                     console.log(err)
