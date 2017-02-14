@@ -1,4 +1,3 @@
-//TODO: change help text in eavesdropping
 'use strict'
 
 const express = require('express')
@@ -126,13 +125,16 @@ I will respond to the following messages:
 var delivery_bot_msg_obj={
     text: {},
     as_user: false,
-    username: "Delivery Bot",
-    icon_emoji: ":mailbox_with_mail:"
+    username: "Mango's Delivery Bot",
+    icon_emoji: ":package:"
 }
 
-
+var PACKAGE_HELP_FLAVOURTEXT=[
+        "_Are you checking out my bot? :wink:_",
+        "_Please be gentle when handling my bot. :kissing_heart:_"
+    ]
 var PACKAGE_HELP_TEXT = `
-    \`/package\` logs incoming and outgoing deliveries.
+    \`/package\` has the Delivery Bot log incoming and outgoing deliveries.
     \t Available commands:
     \t \t \`/package in [for \@user] from <sender name and/or address>\`
     \t \t \t Record _incoming_ parcels that have been _delivered to the office_. If no recipient, assumes recipient is gor general office.
@@ -142,21 +144,24 @@ var PACKAGE_HELP_TEXT = `
     \t \t \t Gives info about package logs including, spreadsheet url, number of parcels received today and in the last week.
     `
 
+//TODO: make this persistent
 var DELIVERY_SERVICES = ['auspost','startrack','dhl','couriersplease','fedex']
 
 
 //Relevant keywords for parsing
 var kw_parcel = ["parcel","package","delivery"]
-var kw_in = ["received","in","recieved","receive","recieve","arrived","arrive"]
+var kw_in = ["in","received","recieved","receive","recieve","arrived","arrive"]
 var kw_out = ["out","sent","outgoing","dispatched","registered"]
 var kw_to = ["for","to"]
 var kw_from = ["from"]
 var kw_desc = ["containing", "contains", "desc", "description"]
 var kw_loc = ["location", "sitting", "placed", "put","left"]
+var kw_req = ["requester", "on behalf of", "requested by"]
 
-var delivery_ambient_detect = '((('+kw_in.concat(kw_out).concat(kw_to).concat(kw_from).concat(kw_desc).concat(kw_parcel).join("|")+')\\W)([\\w\\@\\>\\<]*\\W)?){3,}(.*)'
 
-var delivery_amb_re = new RegExp(delivery_ambient_detect,"i")
+var delivery_ambient_detect = "(in|received|recieved|receive|recieve|arrived|arrive|out|sent|outgoing|dispatched|registered|for|to|from|containing|contains|desc|description|parcel|package|delivery|(\\<\\@\\w+\\>))"
+
+var delivery_amb_re = new RegExp(delivery_ambient_detect,"ig")
 
 //Valid cmds (currently not in use)
 var valid_cmds = ["help","in","received","receive","recieve","out","sent"]
@@ -294,13 +299,29 @@ function inDelivery(msg,text,command,q){
 
 // cmd: helpText
 slapp.command('/package', 'help',(msg,text)=>{
-    msg.respond(PACKAGE_HELP_TEXT);
+    msg.respond("*Help*\n"+PACKAGE_HELP_FLAVOURTEXT[Math.floor(Math.random()*2)]
+).respond(PACKAGE_HELP_TEXT)
+});
+
+// cmd: helpText
+slapp.command('/package', 'synonyms',(msg,text)=>{
+    var kw_arr = [kw_in,kw_out,kw_to,kw_from,kw_desc,kw_loc]
+    var s = ""
+    for (var i in kw_arr){
+        var sub = kw_arr[i].length>1? kw_arr[i].slice(1):""
+        s += "*"+kw_arr[i][0]+":*\t"+sub+"\n"
+    }
+    var response = "*Synonyms*\n" + s
+    msg.respond(response)
 });
 
 slapp.command('/package', 'info', (msg,text)=>{
-    msg.respond(`
-    Delivery logs are kept under google spreadsheetID: ${process.env.DELIVERY_SHEET_ID}
-    COMING_SOON: Daily stats
+    msg.respond(
+`
+*Info*
+spreadsheetID: \t ${process.env.DELIVERY_SHEET_ID}
+Daily stats: \t COMING_SOON
+author: \t C Klafas (calla.klafas@gmail.com) Feb 2017
     `)
 })
 
@@ -415,12 +436,12 @@ function mentionUser(msg,state){
 
 //Record out package (sent)
 slapp.command('/package', '('+kw_out.join("|")+')'+'(.*)', (msg,text,command,q)=>{
-    if (!checkKW(kw_to,text)){
+    if (!checkKW(msg,kw_to,text)){
         return;
     }
         
    //keywords
-    var kw = kw_to.concat(kw_from,kw_desc,kw_loc,DELIVERY_SERVICES); 
+    var kw = kw_to.concat(kw_from,kw_desc,kw_loc,DELIVERY_SERVICES,kw_req); 
     var kw_re = new RegExp("("+kw.join("|")+")","i");
 
     // split all arguments based on keywords/flags
@@ -435,7 +456,8 @@ slapp.command('/package', '('+kw_out.join("|")+')'+'(.*)', (msg,text,command,q)=
         "description": find_value(q_arr,kw_desc),
         "location": find_value(q_arr,kw_loc),
         "service": find_key(q_arr,DELIVERY_SERVICES),
-        "tracking": find_value(q_arr,DELIVERY_SERVICES)
+        "tracking": find_value(q_arr,DELIVERY_SERVICES),
+        "requester": find_value(q_arr,kw_req)
     }
 
     // TODO: if leftover unaccounted for information, log entire message.
@@ -473,19 +495,22 @@ slapp.message("auth sheets",["direct_mention","direct_message"], (msg) =>{
 
 // Listening for package logs (any keyword mentioned three times or more)
 slapp.message(delivery_amb_re, ['ambient'], (msg) => {
-  slapp.client.im.open({token: msg.meta.bot_token, user: msg.meta.user_id}, (err,data)=>{
-        if(err){console.log(err); return;}
-        slapp.client.chat.postMessage(Object.assign(delivery_bot_msg_obj,{
-        token: msg.meta.bot_token, 
-        text: "It seems like you're logging a parcel delivery. Log it using `/package (in|out) [for (@user|name)] from <name|address>` or type `/package help` for more options.",
-        channel: data.channel.id
-        }), (err,data) => {
-            if(err){
+    //atleast have 3 matches before triggering
+    if (msg.body.event.text.match(delivery_amb_re).length>2){
+        slapp.client.im.open({token: msg.meta.bot_token, user: msg.meta.user_id}, (err,data)=>{
+            if(err){console.log(err); return;}
+            slapp.client.chat.postMessage(Object.assign(delivery_bot_msg_obj,{
+            token: msg.meta.bot_token, 
+            text: "It seems like you're logging a parcel delivery. Log it using `/package (in|out) [for (@user|name)] from <name|address>` or type `/package help` for more options.",
+            channel: data.channel.id
+            }), (err,data) => {
+                if(err){
 
-                console.log(err)
-            }
+                    console.log(err)
+                }
+            })
         })
-    })
+    }
 })
 
 // Listening for file uploads which get sent to the deliveries channel (unprompted)
