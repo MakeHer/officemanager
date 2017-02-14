@@ -240,8 +240,8 @@ function prepareConfirmation(msg,text,log_payload,type){
 
     })
 }
-function logPayload(state,success){
-    newDelivery("",state.type+2,Object.assign({"success": success,"input":state.text},state.payload),(err,msg)=>{}
+function logPayload(msg,state,success){
+    newDelivery(msg,state.type+2,Object.assign({"success": success,"input":state.text},state.payload),(err,msg)=>{}
 )}
 
 //checks for keyword compliance
@@ -350,7 +350,7 @@ slapp.route('handleDeliveryConfirmation',(msg,state)=>{
 
     let answer = msg.body.actions[0].value
     if (answer !== 'confirm'){
-        logPayload(state,false)
+        logPayload(msg,state,false)
         msg.respond(msg.body.response_url,{
             text: "Delivery not recorded",
             replace_original: true
@@ -368,7 +368,7 @@ slapp.route('handleDeliveryConfirmation',(msg,state)=>{
             return;
         }
         else{
-            logPayload(state,true)
+            logPayload(msg,state,true)
             msg.respond(msg.body.response_url,{
                 text: 'Logged parcel! :muscle:',
                 replace_original: true
