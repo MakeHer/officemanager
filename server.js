@@ -30,15 +30,15 @@ var slapp = Slapp({
 function newDelivery(msg,inout,delivery, callback){
     var e;
     date = new Date()
-        sheet_id = process.env.DELIVERY_SHEET_ID  || msg.config.DELIVERY_SHEET_ID 
+        sheet_id = process.env.DELIVERY_SHEET_ID  || msg.meta.config.DELIVERY_SHEET_ID 
             doc = new GoogleSpreadsheet(sheet_id);
-            pk = (process.env.G_PRIVATE_KEY + process.env.G_PRIVATE_KEY2)||( msg.config.G_PRIVATE_KEY + msg.config.G_PRIVATE_KEY )
-
+            pk = (process.env.G_PRIVATE_KEY + process.env.G_PRIVATE_KEY2)||( msg.meta.config.G_PRIVATE_KEY + msg.meta.config.G_PRIVATE_KEY2 )
+meta.
             pk = pk.replace(/(?:\\[rn])+/g,"\n") 
 
             creds = {
 
-                client_email: process.env.G_CLIENT_EMAIL || msg.config.G_CLIENT_EMAIL
+                client_email: process.env.G_CLIENT_EMAIL || msg.meta.config.G_CLIENT_EMAIL
             ,
                 private_key: pk
 
@@ -397,7 +397,7 @@ function deliveryAlert(msg,state,text){
     }
     slapp.client.chat.postMessage(Object.assign(delivery_bot_msg_obj,{
             token: msg.meta.bot_token,
-        channel: process.env.DELIVERY_CHANNEL || msg.config.DELIVERY_CHANNEL,
+        channel: process.env.DELIVERY_CHANNEL || msg.meta.config.DELIVERY_CHANNEL,
         //text: `<@${user_id}|${state.payload.to.substring(1)}> Package received.`,
         text: text+ "Package received",
         attachments:[{
