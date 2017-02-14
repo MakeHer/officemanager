@@ -123,6 +123,7 @@ I will respond to the following messages:
 //
 
 var delivery_bot_msg_obj={
+    // text: {}, was removed
     as_user: false,
     username: "Mango's Delivery Bot",
     icon_emoji: ":package:"
