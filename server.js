@@ -30,14 +30,15 @@ var slapp = Slapp({
 function newDelivery(msg,inout,delivery, callback){
     var e;
     date = new Date()
-        sheet_id = process.env.DELIVERY_SHEET_ID  || msg.meta.config.DELIVERY_SHEET_ID 
+        sheet_id = msg.meta.config.DELIVERY_SHEET_ID 
             doc = new GoogleSpreadsheet(sheet_id);
-            pk = (process.env.G_PRIVATE_KEY + process.env.G_PRIVATE_KEY2)||( msg.meta.config.G_PRIVATE_KEY + msg.meta.config.G_PRIVATE_KEY2 )
+            //pk = (process.env.G_PRIVATE_KEY + process.env.G_PRIVATE_KEY2)||( msg.meta.config.G_PRIVATE_KEY + msg.meta.config.G_PRIVATE_KEY2 )
+            pk = (msg.meta.config.G_PRIVATE_KEY + msg.meta.config.G_PRIVATE_KEY2)
             pk = pk.replace(/(?:\\[rn])+/g,"\n") 
 
             creds = {
 
-                client_email: process.env.G_CLIENT_EMAIL || msg.meta.config.G_CLIENT_EMAIL
+                client_email: msg.meta.config.G_CLIENT_EMAIL
             ,
                 private_key: pk
 
