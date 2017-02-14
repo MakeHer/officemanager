@@ -140,7 +140,7 @@ var PACKAGE_HELP_TEXT = `
     \t \t \t Record _incoming_ parcels that have been _delivered to the office_. If no recipient, assumes recipient is gor general office.
     \t \t \`/package out for <name> [service provider] [tracking#]\`
     \t \t \t Record _outgoing_ parcels
-    \t \t \`/package synonyms`
+    \t \t \`/package synonyms\`
     \t \t \t While the syntax may be strict, the keywords used are flexible for natural language patterns. Use this to see what synonyms can be used.
     \t \t \`/package info\`
     \t \t \t Gives info about package logs including, spreadsheet url, number of parcels received today and in the last week.
@@ -287,6 +287,10 @@ function inDelivery(msg,text,command,q){
     if (log_payload.to === "me"){
         log_payload.to = msg.body.user_name
     }
+    
+    //TODO:
+    //if .to is you, and there is an @mention, in the message
+    // replace with username (requires username lookup by id
 
     
     prepareConfirmation(msg,text,log_payload,1)
