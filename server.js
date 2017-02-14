@@ -123,7 +123,6 @@ I will respond to the following messages:
 //
 
 var delivery_bot_msg_obj={
-    text: {},
     as_user: false,
     username: "Mango's Delivery Bot",
     icon_emoji: ":package:"
@@ -502,7 +501,7 @@ slapp.message("auth sheets",["direct_mention","direct_message"], (msg) =>{
 // Listening for package logs (any keyword mentioned three times or more)
 slapp.message(delivery_amb_re, ['ambient'], (msg) => {
     //atleast have 3 matches before triggering
-    if (msg.body.event.text.match(delivery_amb_re).length>2){
+    if (msg.body.event.text.match(delivery_amb_re).length>2 && !msg.meta.bot_id){
         slapp.client.im.open({token: msg.meta.bot_token, user: msg.meta.user_id}, (err,data)=>{
             if(err){console.log(err); return;}
             slapp.client.chat.postMessage(Object.assign({
